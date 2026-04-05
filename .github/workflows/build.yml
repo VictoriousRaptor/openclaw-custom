@@ -21,55 +21,55 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  UPSTREAM_IMAGE: ghcr.io/openclaw/openclaw:latest
+  UPSTREAM_REPO: openclaw/openclaw
 
 jobs:
   check-upstream:
-    name: Check upstream image digest
+    name: Check upstream latest tag
     runs-on: ubuntu-latest
-    # Only run the digest check for scheduled runs; skip for push/PR/manual
+    # Only run the tag check for scheduled runs; skip for push/PR/manual
     if: github.event_name == 'schedule'
     permissions:
       contents: read
     outputs:
       upstream_changed: ${{ steps.check.outputs.changed }}
     steps:
-      - name: Get current upstream digest
+      - name: Get latest upstream tag
         id: upstream
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          DIGEST=$(docker manifest inspect ${{ env.UPSTREAM_IMAGE }} \
-            | jq -r '.manifests[]? | select(.platform.architecture=="amd64" and .platform.os=="linux") | .digest' \
-            | head -1)
-          # Fall back to top-level digest for single-arch manifests
-          if [ -z "$DIGEST" ]; then
-            DIGEST=$(docker manifest inspect ${{ env.UPSTREAM_IMAGE }} | jq -r '.config.digest')
-          fi
-          echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          TAG=$(gh api repos/${{ env.UPSTREAM_REPO }}/tags --jq '.[0].name')
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Restore cached upstream digest
+      - name: Restore cached upstream tag
         id: cache
         uses: actions/cache/restore@v4
         with:
-          path: upstream-digest.txt
-          key: upstream-digest-${{ steps.upstream.outputs.digest }}
+          path: upstream-tag.txt
+          key: upstream-tag-${{ steps.upstream.outputs.tag }}
 
       - name: Determine whether upstream changed
         id: check
         run: |
           if [ "${{ steps.cache.outputs.cache-hit }}" = "true" ]; then
-            echo "Upstream image has not changed. Skipping build."
+            echo "Upstream tag has not changed. Skipping build."
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
-            echo "Upstream image changed (or no cached digest found). Triggering build."
+            echo "Upstream tag changed (or no cached tag found). Triggering build."
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Save new upstream digest to cache
+      - name: Write upstream tag to file
+        if: steps.check.outputs.changed == 'true'
+        run: echo "${{ steps.upstream.outputs.tag }}" > upstream-tag.txt
+
+      - name: Save new upstream tag to cache
         if: steps.check.outputs.changed == 'true'
         uses: actions/cache/save@v4
         with:
-          path: upstream-digest.txt
-          key: upstream-digest-${{ steps.upstream.outputs.digest }}
+          path: upstream-tag.txt
+          key: upstream-tag-${{ steps.upstream.outputs.tag }}
 
   build-and-push:
     name: Build and push image to GHCR
