@@ -45,6 +45,8 @@ jobs:
             DIGEST=$(docker manifest inspect ${{ env.UPSTREAM_IMAGE }} | jq -r '.config.digest')
           fi
           echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          # Write digest to file so it can be cached
+          echo "$DIGEST" > upstream-digest.txt
 
       - name: Restore cached upstream digest
         id: cache
@@ -52,6 +54,7 @@ jobs:
         with:
           path: upstream-digest.txt
           key: upstream-digest-${{ steps.upstream.outputs.digest }}
+          lookup-only: true
 
       - name: Determine whether upstream changed
         id: check
