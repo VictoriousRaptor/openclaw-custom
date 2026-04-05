@@ -17,7 +17,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
 
 # 5. 安装 mcporter 和 summarize (它们是 Node.js 写的 CLI 工具)
 # OpenClaw 官方镜像已内置 Node.js 和 npm，直接全局安装即可
-RUN npm install -g mcporter summarize
+RUN npm install -g mcporter summarize clawhub
 
 # 6. (可选) 如果官方镜像原本运行在非 root 用户下（例如 node 或 openclaw），请在此切换回去
 USER node
